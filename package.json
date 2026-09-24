@@ -1,0 +1,48 @@
+{
+  "name": "@careportals/cart",
+  "version": "1.0.0",
+  "description": "Embeddable shopping cart widget for the CarePortals public API.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/careportals/cart.git"
+  },
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "cross-env STAGE=prod vite build --mode production",
+    "build:dev": "cross-env STAGE=dev vite build --mode development",
+    "serve": "cross-env STAGE=dev vite",
+    "dev": "cross-env STAGE=dev vite",
+    "watch": "cross-env STAGE=dev vite build --mode development --watch",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.11.0",
+    "@mantine/carousel": "^6.0.10",
+    "@mantine/core": "^6.0.10",
+    "@mantine/form": "^6.0.10",
+    "@mantine/hooks": "^6.0.10",
+    "axios": "^1.4.0",
+    "embla-carousel-react": "^7.0.0",
+    "jotai": "^2.1.0",
+    "lodash": "^4.17.21",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-icons": "^4.8.0",
+    "tinycolor2": "^1.6.0"
+  },
+  "devDependencies": {
+    "@types/lodash": "^4.14.194",
+    "@types/react": "^18.0.28",
+    "@types/react-dom": "^18.0.11",
+    "@types/tinycolor2": "^1.4.6",
+    "@vitejs/plugin-react": "^4.3.4",
+    "cross-env": "^7.0.3",
+    "less": "^3.12.2",
+    "typescript": "5.5.4",
+    "vite": "^5.1.4",
+    "vitest": "^4.0.16"
+  }
+}
