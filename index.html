@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Demo Store</title>
+        <base href="/" />
+
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+        <link rel="icon" type="image/x-icon" href="favicon.ico" />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Nunito:wght@500&display=swap"
+            rel="stylesheet"
+        />
+        <link
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+            rel="stylesheet"
+        />
+
+        <script>
+            const URLQuery = new URLSearchParams(window.location.search);
+            var organization = URLQuery.get('organization') || 'appgen_demo';
+            var portalsCheckoutUrl =
+                URLQuery.get('checkoutUrl') ||
+                'http://localhost:3000/checkouts/:cartId';
+
+            // Fetch products from v2 API
+            async function loadProducts() {
+                try {
+                    const response = await fetch(
+                        'http://localhost:3304/public/v2/products',
+                        {
+                            headers: {
+                                Accept: 'application/json',
+                                organization: organization,
+                                'Cache-Control': 'no-cache'
+                            }
+                        }
+                    );
+
+                    if (!response.ok) {
+                        throw new Error(
+                            `HTTP error! status: ${response.status}`
+                        );
+                    }
+
+                    const products = await response.json();
+                    displayProducts(products);
+                } catch (error) {
+                    console.error('Error loading products:', error);
+                    document.getElementById('products-container').innerHTML = `
+                        <div class="error-message">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <p>Unable to load products. Please try again later.</p>
+                        </div>
+                    `;
+                }
+            }
+
+            function displayProducts(products) {
+                const container = document.getElementById('products-container');
+                const loadingElement = document.getElementById('loading');
+
+                if (loadingElement) {
+                    loadingElement.style.display = 'none';
+                }
+
+                if (!products || products.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-shopping-bag"></i>
+                            <h3>No products available</h3>
+                            <p>Check back later for new products!</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Group products by category
+                const grouped = groupProductsByCategory(products);
+
+                container.innerHTML = '';
+
+                for (const [categoryName, categoryProducts] of Object.entries(
+                    grouped
+                )) {
+                    const categorySection = createCategorySection(
+                        categoryName,
+                        categoryProducts
+                    );
+                    container.appendChild(categorySection);
+                }
+            }
+
+            function groupProductsByCategory(products) {
+                const grouped = {};
+
+                products.forEach(product => {
+                    const categoryName =
+                        product.categories && product.categories.length > 0
+                            ? product.categories[0].name
+                            : 'Other Products';
+
+                    if (!grouped[categoryName]) {
+                        grouped[categoryName] = [];
+                    }
+                    grouped[categoryName].push(product);
+                });
+
+                return grouped;
+            }
+
+            function createCategorySection(categoryName, products) {
+                const section = document.createElement('div');
+                section.className = 'category-section';
+
+                section.innerHTML = `
+                    <h2 class="category-title">
+                        <i class="fas fa-tag"></i>
+                        ${categoryName}
+                    </h2>
+                    <div class="products-grid">
+                        ${products
+                            .map(product => createProductCard(product))
+                            .join('')}
+                    </div>
+                `;
+
+                return section;
+            }
+
+            function createProductCard(product) {
+                const hasImage = product.images && product.images.length > 0;
+                const imageUrl = hasImage ? product.images[0].imageUrl : null;
+
+                const isSubscription = product.isSubscription;
+                const price = product.price;
+                const currency = product.currency || 'USD';
+
+                return `
+                    <div class="product-card" data-product-id="${product._id}">
+                        <div class="product-image">
+                            ${
+                                hasImage
+                                    ? `<img src="${imageUrl}" alt="${product.label}" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />`
+                                    : ''
+                            }
+                            <div class="placeholder-image" style="${
+                                hasImage ? 'display: none;' : 'display: flex;'
+                            }">
+                                <i class="fas fa-box"></i>
+                                <span>No Image</span>
+                            </div>
+                            ${
+                                isSubscription
+                                    ? '<div class="subscription-badge"><i class="fas fa-sync-alt"></i> Subscription</div>'
+                                    : ''
+                            }
+                        </div>
+                         <div class="product-info">
+                             <h3 class="product-title">${product.label}</h3>
+                             ${
+                                 product.subLabel
+                                     ? `<p class="product-subtitle">${product.subLabel}</p>`
+                                     : ''
+                             }
+                             ${
+                                 product.description
+                                     ? `<p class="product-description">${product.description}</p>`
+                                     : ''
+                             }
+                             <div class="product-price">
+                                 <span class="price-current">$${price}</span>
+                                 ${
+                                     product.listPrice &&
+                                     product.listPrice !== price
+                                         ? `<span class="price-original">$${product.listPrice}</span>`
+                                         : ''
+                                 }
+                                 <span class="price-currency">${currency}</span>
+                             </div>
+                             ${
+                                 product.categories &&
+                                 product.categories.length > 0
+                                     ? `
+                                 <div class="product-categories">
+                                     ${product.categories
+                                         .map(
+                                             cat =>
+                                                 `<span class="category-tag">${cat.name}</span>`
+                                         )
+                                         .join('')}
+                                 </div>
+                             `
+                                     : ''
+                             }
+                             <div class="technical-info">
+                                 <div class="tech-item"><strong>ID:</strong> ${
+                                     product._id
+                                 }</div>
+                                 <div class="tech-item"><strong>Type:</strong> ${
+                                     product.type
+                                 }</div>
+                                 <div class="tech-item"><strong>Status:</strong> ${
+                                     product.status
+                                 }</div>
+                             </div>
+                         </div>
+                         <button class="add-to-cart-btn product-item" data-product-id="${
+                             product._id
+                         }">
+                             <i class="fas fa-cart-plus"></i>
+                             Add to Cart
+                         </button>
+                     </div>
+                 `;
+            }
+
+            // Initialize the store when page loads
+            document.addEventListener('DOMContentLoaded', function () {
+                // Update organization in header
+                document.getElementById('org-name').textContent = organization;
+                loadProducts();
+            });
+        </script>
+    </head>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #0f1419 !important;
+            min-height: 100vh;
+            color: #e2e8f0 !important;
+        }
+
+        .store-header {
+            background: rgba(15, 20, 25, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 0.75rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
+            border-bottom: 1px solid #14b8a6;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .store-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #f1f5f9;
+        }
+
+        .store-subtitle {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            margin-top: 0.25rem;
+        }
+
+        .org-info {
+            font-size: 0.75rem;
+            color: #5eead4;
+            margin-top: 0.125rem;
+            font-family: 'Courier New', monospace;
+        }
+
+        .org-info span {
+            color: #14b8a6;
+            font-weight: 600;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 3rem 0;
+            color: #f1f5f9;
+        }
+
+        .loading i {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            animation: spin 2s linear infinite;
+            color: #14b8a6;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .category-section {
+            margin-bottom: 2rem;
+        }
+
+        .category-title {
+            color: #f1f5f9;
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .category-title i {
+            color: #14b8a6;
+        }
+
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 0.75rem;
+            align-items: stretch;
+        }
+
+        .product-card {
+            background: #1e2936;
+            border: 1px solid #2d3748;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            min-height: 360px;
+            max-height: 360px;
+        }
+
+        .product-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+            border-color: #14b8a6;
+        }
+
+        .product-image {
+            position: relative;
+            height: 120px;
+            overflow: hidden;
+            background: #2d3748;
+        }
+
+        .product-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+
+        .placeholder-image {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+            color: #5eead4;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .placeholder-image i {
+            font-size: 2rem;
+            margin-bottom: 0.375rem;
+            opacity: 0.7;
+        }
+
+        .placeholder-image span {
+            opacity: 0.8;
+        }
+
+        .product-card:hover .product-image img {
+            transform: scale(1.05);
+        }
+
+        .subscription-badge {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            background: #14b8a6;
+            color: white;
+            padding: 0.25rem 0.375rem;
+            border-radius: 8px;
+            font-size: 0.65rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.2rem;
+        }
+
+        .product-info {
+            padding: 0.6rem;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .product-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            color: #f1f5f9;
+            line-height: 1.2;
+        }
+
+        .product-subtitle {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            margin-bottom: 0.375rem;
+        }
+
+        .product-description {
+            font-size: 0.75rem;
+            color: #cbd5e1;
+            margin-bottom: 0.5rem;
+            line-height: 1.3;
+            flex-grow: 1;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+
+        .product-price {
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .price-current {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #14b8a6;
+        }
+
+        .price-original {
+            font-size: 0.8rem;
+            text-decoration: line-through;
+            color: #64748b;
+        }
+
+        .price-currency {
+            font-size: 0.7rem;
+            color: #94a3b8;
+            font-weight: 500;
+        }
+
+        .product-categories {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .category-tag {
+            background: #2d3748;
+            color: #5eead4;
+            padding: 0.15rem 0.3rem;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            font-weight: 500;
+        }
+
+        .add-to-cart-btn {
+            width: 100%;
+            background: #14b8a6;
+            color: white;
+            border: none;
+            padding: 0.6rem;
+            border-radius: 0 0 8px 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.3rem;
+        }
+
+        .add-to-cart-btn:hover {
+            background: #0f9795;
+            transform: translateY(-1px);
+        }
+
+        .add-to-cart-btn:active {
+            transform: translateY(0);
+        }
+
+        .error-message {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: #f1f5f9;
+        }
+
+        .error-message i {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: #f87171;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: #f1f5f9;
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: #14b8a6;
+        }
+
+        .empty-state h3 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .cart-widget-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .technical-info {
+            margin-top: 0.375rem;
+            padding: 0.375rem;
+            background: #0f1419;
+            border-radius: 4px;
+            border: 1px solid #2d3748;
+        }
+
+        .tech-item {
+            font-size: 0.6rem;
+            color: #94a3b8;
+            margin-bottom: 0.1rem;
+            font-family: 'Courier New', monospace;
+            display: inline-block;
+            margin-right: 0.5rem;
+        }
+
+        .tech-item strong {
+            color: #5eead4;
+            font-weight: 600;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 0.75rem;
+            }
+
+            .header-content {
+                padding: 0 0.75rem;
+            }
+
+            .store-title {
+                font-size: 1.25rem;
+            }
+
+            .products-grid {
+                grid-template-columns: 1fr;
+                gap: 0.75rem;
+            }
+
+            .product-card {
+                margin-bottom: 0.75rem;
+            }
+
+            .technical-info {
+                padding: 0.375rem;
+            }
+
+            .tech-item {
+                display: block;
+                margin-right: 0;
+                margin-bottom: 0.125rem;
+            }
+        }
+    </style>
+    <body>
+        <header class="store-header">
+            <div class="header-content">
+                <div>
+                    <h1 class="store-title">Demo Store</h1>
+                    <p class="store-subtitle">Testing Environment</p>
+                    <p class="org-info">
+                        Organization: <span id="org-name">appgen_demo</span>
+                    </p>
+                </div>
+                <div class="cart-widget-container">
+                    <div id="portals-cart-app"></div>
+                </div>
+            </div>
+        </header>
+
+        <div class="container">
+            <div id="loading" class="loading">
+                <i class="fas fa-spinner"></i>
+                <p>Loading products...</p>
+            </div>
+
+            <div id="products-container">
+                <!-- Products will be loaded here via JavaScript -->
+            </div>
+        </div>
+        
+        <script type="module" src="/src/main.tsx"></script>
+    </body>
+</html>
